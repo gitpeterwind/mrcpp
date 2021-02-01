@@ -626,7 +626,7 @@ template <int D> void FunctionTree<D>::makeTreefromCoeff(MWTree<D> &refTree, std
         }
         node->setHasCoefs();
         node->calcNorms();
-        if (node->splitCheck(absPrec, 1.0, true) and refNode->getNChildren() > 0) {
+        if ( (absPrec < 0 or node->splitCheck(absPrec, 1.0, true) ) and refNode->getNChildren() > 0) {
             // include children in tree
             node->createChildren();
 	    double *inp = node->getCoefs();

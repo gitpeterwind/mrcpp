@@ -165,7 +165,9 @@ template <int D, typename T> void MWTree<D, T>::mwTransform(int type, bool overw
  */
 template <int D, typename T> void MWTree<D, T>::mwTransformUp() {
     std::vector<MWNodeVector<D, T>> nodeTable;
+    std::cout<<" MWTree.cpp mwTransformUp"<<std::endl;
     tree_utils::make_node_table(*this, nodeTable);
+    std::cout<<" MWTree.cpp done make_node_table"<<nodeTable.size()<<std::endl;
 #pragma omp parallel shared(nodeTable) num_threads(mrcpp_get_num_threads())
     {
         int start = nodeTable.size() - 2;
@@ -187,7 +189,7 @@ template <int D, typename T> void MWTree<D, T>::mwTransformUp() {
  *
  * @details The transformation starts at the rootNodes and proceeds
  * recursively all the way to the leaf nodes. The existing scaling
- * coefficeints will either be overwritten or added to. The latter
+ * coefficients will either be overwritten or added to. The latter
  * operation is generally used after the operator application.
  *
  */
@@ -453,11 +455,28 @@ template <int D, typename T> MWNodeVector<D, T> *MWTree<D, T>::copyEndNodeTable(
  */
 template <int D, typename T> void MWTree<D, T>::resetEndNodeTable() {
     clearEndNodeTable();
-    TreeIterator<D, T> it(*this, TopDown, Hilbert);
-    it.setReturnGenNodes(false);
-    while (it.next()) {
-        MWNode<D, T> &node = it.getNode();
-        if (node.isEndNode()) { this->endNodeTable.push_back(&node); }
+    if (false) {
+        TreeIterator<D, T> it(*this, TopDown, Hilbert);
+        it.setReturnGenNodes(false);
+        while (it.next()) {
+            MWNode<D, T> &node = it.getNode();
+            if (node.isEndNode()) { this->endNodeTable.push_back(&node); }
+        }
+    } else {
+        // traverse tree and find allocated endnodes
+        std::vector<MWNode<D, T> *> stack;
+        for (int i = 0; i < this->getRootBox().size(); i++) {
+            stack.push_back(this->getRootBox().getNodes()[i]);
+        }
+        int stack_p = 0;
+        while (stack.size() > stack_p) {
+            MWNode<D, T> *node = stack[stack_p];
+            if (node->isEndNode() and node != nullptr) { this->endNodeTable.push_back(node); }
+            for (int i = 0; i < node->getNChildren(); i++) {
+                if (node->children[i] != nullptr) stack.push_back(node->children[i]);
+            }
+            stack_p++;
+        }
     }
 }
 

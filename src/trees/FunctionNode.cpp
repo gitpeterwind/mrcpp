@@ -254,6 +254,7 @@ template <int D, typename T> void FunctionNode<D, T>::getAbsCoefs(T *absCoefs) {
 
 template <int D, typename T> void FunctionNode<D, T>::createChildren(bool coefs) {
     if (this->isBranchNode()) MSG_ABORT("Node already has children");
+    if (this->getFuncTree().locked) MSG_ABORT("Cannot modify locked tree");
     auto &allocator = this->getFuncTree().getNodeAllocator();
 
     int nChildren = this->getTDim();
@@ -286,6 +287,40 @@ template <int D, typename T> void FunctionNode<D, T>::createChildren(bool coefs)
         child_p++;
         if (coefs) coefs_p += n_coefs;
     }
+    this->setIsBranchNode();
+    this->clearIsEndNode();
+}
+
+template <int D, typename T> void FunctionNode<D, T>::createChild(int cIdx, bool coefs) {
+    if (this->children[cIdx] != nullptr) return; // child exists already
+    if (this->getFuncTree().locked) MSG_ABORT("Cannot modify locked tree");
+    NodeAllocator<D, T> &allocator = this->getFuncTree().getNodeAllocator();
+
+    int nChildren = 1;
+    int sIdx = allocator.alloc(nChildren, coefs);
+
+    int n_coefs = allocator.getNCoefs();
+    T *coefs_p = (coefs) ? allocator.getCoef_p(sIdx) : nullptr;
+    MWNode<D, T> *child_p = allocator.getNode_p(sIdx);
+
+    new (child_p) FunctionNode<D, T>(this, cIdx);
+    this->childSerialIx = sIdx;
+
+    this->children[cIdx] = child_p;
+    child_p->serialIx = sIdx;
+    child_p->parentSerialIx = this->serialIx;
+    child_p->childSerialIx = -1;
+
+    child_p->n_coefs = n_coefs;
+    child_p->coefs = coefs_p;
+    if (coefs) child_p->setIsAllocated();
+
+    child_p->setIsLeafNode();
+    child_p->setIsEndNode();
+    child_p->clearHasCoefs();
+
+    this->getMWTree().incrementNodeCount(child_p->getScale());
+
     this->setIsBranchNode();
     this->clearIsEndNode();
 }
@@ -324,6 +359,43 @@ template <int D, typename T> void FunctionNode<D, T>::genChildren() {
         child_p++;
         coefs_p += n_coefs;
     }
+    this->setIsBranchNode();
+}
+
+template <int D, typename T> void FunctionNode<D, T>::genChild(int cIdx) {
+    if (!this->isBranchNode()) MSG_ABORT("Node does not have any children");
+    auto &allocator = this->getFuncTree().getGenNodeAllocator();
+
+    int nChildren = this->getTDim();
+    int sIdx = allocator.alloc(1);
+
+    auto n_coefs = allocator.getNCoefs();
+    auto *coefs_p = allocator.getCoef_p(sIdx);
+    auto *child_p = allocator.getNode_p(sIdx);
+
+    this->childSerialIx = sIdx;
+  //    for (int cIdx = 0; cIdx < nChildren; cIdx++) {
+        // construct into allocator memory
+        new (child_p) FunctionNode<D, T>(this, cIdx);
+        this->children[cIdx] = child_p;
+
+        child_p->serialIx = sIdx;
+        child_p->parentSerialIx = (this->isGenNode()) ? this->serialIx : -1;
+        child_p->childSerialIx = -1;
+
+        child_p->n_coefs = n_coefs;
+        child_p->coefs = coefs_p;
+        child_p->setIsAllocated();
+
+        child_p->setIsLeafNode();
+        child_p->setIsGenNode();
+        child_p->clearHasCoefs();
+        child_p->clearIsEndNode();
+
+        sIdx++;
+        child_p++;
+        coefs_p += n_coefs;
+  //    }
     this->setIsBranchNode();
 }
 

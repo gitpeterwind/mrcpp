@@ -90,7 +90,7 @@ public:
     int getNChunks() { return this->getNodeAllocator().getNChunks(); }
     int getNChunksUsed() { return this->getNodeAllocator().getNChunksUsed(); }
 
-    int crop(double prec, double splitFac = 1.0, bool absPrec = true);
+    int crop(double prec, double splitFac = 1.0, bool absPrec = true, bool hard = false);
 
     FunctionNode<D, T> &getEndFuncNode(int i) { return static_cast<FunctionNode<D, T> &>(this->getEndMWNode(i)); }
     FunctionNode<D, T> &getRootFuncNode(int i) { return static_cast<FunctionNode<D, T> &>(this->rootBox.getNode(i)); }
@@ -114,6 +114,8 @@ public:
     void makeTreefromCoeff(MWTree<D, double> &refTree, std::vector<T *> coefpVec, std::map<int, int> &ix2coef, double absPrec, const std::string &mode = "adaptive");
     void appendTreeNoCoeff(MWTree<D, double> &inTree);
     void appendTreeNoCoeff(MWTree<D, ComplexDouble> &inTree);
+    void appendTreeCoeff(MWTree<D, double> &inTree);
+    void appendTreeCoeff(MWTree<D, ComplexDouble> &inTree);
     void CopyTree(FunctionTree<D, double> &inTree);
     // tools for use of local (nodes are stored in Bank) representation
     int saveNodesAndRmCoeff(); // put all nodes coefficients in Bank and delete all coefficients
@@ -124,12 +126,12 @@ public:
     void CopyTreeToComplex(FunctionTree<2, ComplexDouble> *&out);
     void CopyTreeToComplex(FunctionTree<1, ComplexDouble> *&out);
     void CopyTreeToReal(FunctionTree<3, double> *&out); // for testing
+    void allocRootNodes();
 
 protected:
     std::unique_ptr<NodeAllocator<D, T>> genNodeAllocator_p{nullptr};
     std::ostream &print(std::ostream &o) const override;
 
-    void allocRootNodes();
 };
 
 } // namespace mrcpp

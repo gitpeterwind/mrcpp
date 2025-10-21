@@ -54,7 +54,7 @@ protected:
 
         // The wavelet contribution (in the product of node0 and node1) can be approximated as
         double multNorm = maxW0 * maxS1 + maxW1 * maxS0 + maxW0 * maxW1;
-
+        std::cout<<"Mult splitNode "<<multNorm<<" "<<not(pNode0.isLeafNode() and pNode1.isLeafNode())<<std::endl;
         // Note: this never refine deeper than one scale more than input tree grids, because when wavelets are zero
         // for both input trees, multPrec=0 In addition, we force not to refine deeper than input tree grids
         if (multNorm > this->prec and not(pNode0.isLeafNode() and pNode1.isLeafNode())) {

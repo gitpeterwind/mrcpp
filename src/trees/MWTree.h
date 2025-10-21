@@ -183,6 +183,7 @@ protected:
 
     BankAccount *NodesCoeff = nullptr;
     bool conj{false};
+    bool locked{false}; // if locked, the tree can never grow again
 
     virtual std::ostream &print(std::ostream &o) const;
 };

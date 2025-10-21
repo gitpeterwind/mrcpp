@@ -852,14 +852,20 @@ template <int D, typename T> std::ostream &FunctionTree<D, T>::print(std::ostrea
  * @note The splitting factor appears in the threshold for the wavelet norm as
  * \f$ ||w|| < 2^{-sn/2} ||f|| \epsilon \f$. In principal, `s` should be equal
  * to the dimension; in practice, it is set to `s=1`.
+ * If hard, the negligible end nodes will be removed and the tree locked for changes
  */
-template <int D, typename T> int FunctionTree<D, T>::crop(double prec, double splitFac, bool absPrec) {
+template <int D, typename T> int FunctionTree<D, T>::crop(double prec, double splitFac, bool absPrec, bool hard) {
+    int NendNodes = this->endNodeTable.size();
+    int NNodes = this->getNNodes();
+    this->calcSquareNorm();
     for (int i = 0; i < this->rootBox.size(); i++) {
         MWNode<D, T> &root = this->getRootMWNode(i);
-        root.crop(prec, splitFac, absPrec);
+        root.crop(prec, splitFac, absPrec, hard);
     }
+    if (hard) this->locked = true;
     int nChunks = this->getNodeAllocator().compress();
     this->resetEndNodeTable();
+    std::cout<<" endnodes before crop "<<NendNodes<<" nodes "<<NNodes<<" after crop "<<this->endNodeTable.size()<<" nodes "<<this->getNNodes()<<std::endl;
     this->calcSquareNorm();
     return nChunks;
 }
@@ -876,6 +882,7 @@ void FunctionTree<D, T>::makeCoeffVector(std::vector<T *> &coefs,
                                          int &max_index,
                                          MWTree<D, double> &refTree,
                                          std::vector<MWNode<D, double> *> *refNodes) {
+    std::cout<<"start FunctionTree<D, T>::makeCoeffVector "<<std::endl;
     coefs.clear();
     indices.clear();
     parent_indices.clear();
@@ -906,8 +913,8 @@ void FunctionTree<D, T>::makeCoeffVector(std::vector<T *> &coefs,
             parent_indices.push_back(-2);
             scalefac.push_back(1.0);
         }
-        if (thisNode->getNChildren() > 0) {
-            for (int i = 0; i < thisNode->getNChildren(); i++) {
+        for (int i = 0; i < thisNode->getNChildren(); i++) {
+            if(thisNode->children[i] != nullptr){
                 if (refNode != nullptr and refNode->getNChildren() > 0)
                     refstack.push_back(refNode->children[i]);
                 else
@@ -916,6 +923,7 @@ void FunctionTree<D, T>::makeCoeffVector(std::vector<T *> &coefs,
             }
         }
     }
+    std::cout<<"done FunctionTree<D, T>::makeCoeffVector "<<std::endl;
 }
 
 /** Traverse tree using DFS and reconstruct it using node info from the
@@ -1004,6 +1012,56 @@ template <int D, typename T> void FunctionTree<D, T>::makeTreefromCoeff(MWTree<D
 template <int D, typename T> void FunctionTree<D, T>::appendTreeNoCoeff(MWTree<D, double> &inTree) {
     std::vector<MWNode<D, double> *> instack; // node from inTree
     std::vector<MWNode<D, T> *> thisstack;    // node from this Tree
+         std::cout<<"start FunctionTree<D, T>::appendTreeNoCoeff "<<std::endl;
+   this->clearEndNodeTable();
+    for (int rIdx = 0; rIdx < inTree.getRootBox().size(); rIdx++) {
+        instack.push_back(inTree.getRootBox().getNodes()[rIdx]);
+        thisstack.push_back(this->getRootBox().getNodes()[rIdx]);
+    }
+    while (thisstack.size() > 0) {
+        // inNode and thisNode are the same node in space, but on different trees
+        MWNode<D, T> *thisNode = thisstack.back();
+        thisstack.pop_back();
+        MWNode<D, double> *inNode = instack.back();
+        instack.pop_back();
+        if (inNode->getNChildren() > 0) {
+            thisNode->clearIsEndNode();
+            //           if (thisNode->getNChildren() < inNode->getNChildren()) thisNode->createChildren(false);
+            for (int i = 0; i < inNode->getNChildren(); i++) {
+                if (inNode->children[i] != nullptr) {
+                    thisNode->createChild(i, false);
+                    instack.push_back(inNode->children[i]);
+                    thisstack.push_back(thisNode->children[i]);
+                } else {
+                    if (thisNode->children[i] != nullptr) thisstack.push_back(thisNode->children[i]);
+                }
+            }
+        } else {
+            // construct EndNodeTable for "This", starting from this branch
+            // This could be done more efficiently, if it proves to be time consuming
+            std::vector<MWNode<D, T> *> branchstack; // local stack starting from this branch
+            branchstack.push_back(thisNode);
+            while (branchstack.size() > 0) {
+                MWNode<D, T> *branchNode = branchstack.back();
+                branchstack.pop_back();
+                if (branchNode->getNChildren() > 0) {
+                    for (int i = 0; i < branchNode->getNChildren(); i++) {
+                        if (branchNode->children[i] != nullptr) branchstack.push_back(branchNode->children[i]);
+                    }
+                } else
+                    this->endNodeTable.push_back(branchNode);
+            }
+        }
+    }
+}
+
+/** Traverse tree using DFS and append same nodes as another tree, without writing
+ *  coefficients, but allocating them.
+ *  Note that we do not use coefficients, so it does not matter what is real or complex
+ */
+template <int D, typename T> void FunctionTree<D, T>::appendTreeCoeff(MWTree<D, double> &inTree) {
+    std::vector<MWNode<D, double> *> instack; // node from inTree
+    std::vector<MWNode<D, T> *> thisstack;    // node from this Tree
     this->clearEndNodeTable();
     for (int rIdx = 0; rIdx < inTree.getRootBox().size(); rIdx++) {
         instack.push_back(inTree.getRootBox().getNodes()[rIdx]);
@@ -1017,10 +1075,14 @@ template <int D, typename T> void FunctionTree<D, T>::appendTreeNoCoeff(MWTree<D
         instack.pop_back();
         if (inNode->getNChildren() > 0) {
             thisNode->clearIsEndNode();
-            if (thisNode->getNChildren() < inNode->getNChildren()) thisNode->createChildren(false);
             for (int i = 0; i < inNode->getNChildren(); i++) {
-                instack.push_back(inNode->children[i]);
-                thisstack.push_back(thisNode->children[i]);
+               if (inNode->children[i] != nullptr) {
+                   thisNode->createChild(i, true);
+                   instack.push_back(inNode->children[i]);
+                   thisstack.push_back(thisNode->children[i]);
+               } else {
+                   if (thisNode->children[i] != nullptr) thisstack.push_back(thisNode->children[i]);
+               }
             }
         } else {
             // construct EndNodeTable for "This", starting from this branch
@@ -1031,7 +1093,58 @@ template <int D, typename T> void FunctionTree<D, T>::appendTreeNoCoeff(MWTree<D
                 MWNode<D, T> *branchNode = branchstack.back();
                 branchstack.pop_back();
                 if (branchNode->getNChildren() > 0) {
-                    for (int i = 0; i < branchNode->getNChildren(); i++) { branchstack.push_back(branchNode->children[i]); }
+                    for (int i = 0; i < branchNode->getNChildren(); i++) {
+                        if (branchNode->children[i] != nullptr) branchstack.push_back(branchNode->children[i]);
+                    }
+                } else
+                    this->endNodeTable.push_back(branchNode);
+            }
+        }
+    }
+}
+
+
+/** Traverse tree using DFS and append same nodes as another tree, without writing
+ *  coefficients, but allocating them.
+ *  Note that we do not use coefficients, so it does not matter what is real or complex
+ */
+template <int D, typename T> void FunctionTree<D, T>::appendTreeCoeff(MWTree<D, ComplexDouble> &inTree) {
+    std::vector<MWNode<D, ComplexDouble> *> instack; // node from inTree
+    std::vector<MWNode<D, T> *> thisstack;    // node from this Tree
+    this->clearEndNodeTable();
+    for (int rIdx = 0; rIdx < inTree.getRootBox().size(); rIdx++) {
+        instack.push_back(inTree.getRootBox().getNodes()[rIdx]);
+        thisstack.push_back(this->getRootBox().getNodes()[rIdx]);
+    }
+    while (thisstack.size() > 0) {
+        // inNode and thisNode are the same node in space, but on different trees
+        MWNode<D, T> *thisNode = thisstack.back();
+        thisstack.pop_back();
+        MWNode<D, ComplexDouble> *inNode = instack.back();
+        instack.pop_back();
+        if (inNode->getNChildren() > 0) {
+            thisNode->clearIsEndNode();
+            for (int i = 0; i < inNode->getNChildren(); i++) {
+                if (inNode->children[i] != nullptr) {
+                    thisNode->createChild(i, true);
+                    instack.push_back(inNode->children[i]);
+                    thisstack.push_back(thisNode->children[i]);
+                } else {
+                    if (thisNode->children[i] != nullptr) thisstack.push_back(thisNode->children[i]);
+                }
+            }
+        } else {
+            // construct EndNodeTable for "This", starting from this branch
+            // This could be done more efficiently, if it proves to be time consuming
+            std::vector<MWNode<D, T> *> branchstack; // local stack starting from this branch
+            branchstack.push_back(thisNode);
+            while (branchstack.size() > 0) {
+                MWNode<D, T> *branchNode = branchstack.back();
+                branchstack.pop_back();
+                if (branchNode->getNChildren() > 0) {
+                    for (int i = 0; i < branchNode->getNChildren(); i++) {
+                        if (branchNode->children[i] != nullptr) branchstack.push_back(branchNode->children[i]);
+                    }
                 } else
                     this->endNodeTable.push_back(branchNode);
             }

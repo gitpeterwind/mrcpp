@@ -130,7 +130,7 @@ template <int D, typename T> int NodeAllocator<D, T>::alloc(int nNodes, bool coe
 
     // we require that the index for first child is a multiple of 2**D
     // so that we can find the sibling rank using rank=sIdx%(2**D)
-    if (sIdx % nNodes != 0) MSG_WARN("Warning: recommended number of siblings is 2**D");
+    //    if (sIdx % nNodes != 0) MSG_WARN("Warning: recommended number of siblings is 2**D");
 
     // fill stack status
     auto &status = this->stackStatus;
@@ -236,8 +236,8 @@ template <int D, typename T> int NodeAllocator<D, T>::compress() {
 
         posocc = findNextOccupied(posavail);
         if (posocc >= this->topStack) break; // treated all nodes
-
-        moveNodes(nNodes, posocc, posavail);
+        //moveNodes(nNodes, posocc, posavail);
+        moveNodes(1, posocc, posavail); // move one node at a time
     }
 
     // find the last used node
@@ -309,7 +309,19 @@ template <int D, typename T> void NodeAllocator<D, T>::moveNodes(int nNodes, int
 
     // update parent
     dstNode->parent->childSerialIx = dstIdx;
-    for (int i = 0; i < nNodes; i++) dstNode->parent->children[i] = dstNode + i;
+    if (nNodes < srcNode->getTDim()) {
+        for (int i = 0; i < nNodes; i++) {
+            //compute the index of the child
+            int cIdx = 0;
+            for (int d = 0; d < D; d++) {
+                int bit = (srcNode->nodeIndex[d]) & 1;
+                cIdx = cIdx + (bit << d);
+            }
+            dstNode->parent->children[cIdx] = dstNode + i;
+        }
+    } else {
+        for (int i = 0; i < nNodes; i++) dstNode->parent->children[i] = dstNode + i;
+    }
 
     // update children
     for (int i = 0; i < nNodes; i++) {

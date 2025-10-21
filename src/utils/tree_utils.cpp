@@ -59,6 +59,7 @@ template <int D, typename T> bool tree_utils::split_check(const MWNode<D, T> &no
 
         double w_thrs = std::max(2.0 * MachinePrec, prec * t_norm * scale_fac);
         double w_norm = std::sqrt(node.getWaveletNorm());
+        //std::cout<<"split_check "<<w_thrs<<" "<<w_norm<<" "<<node.getNodeIndex()<<" "<<node.getSerialIx()<<std::endl;
         if (w_norm > w_thrs) split = true;
     }
     return split;
@@ -81,27 +82,49 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
     }
 }
 
-/** Traverse tree along the Hilbert path and find nodes of any rankId.
+/** Traverse tree and find nodes of any rankId.
  * Returns one nodeVector per scale. GenNodes disregarded. */
 template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree, std::vector<MWNodeVector<D, T>> &table) {
-    TreeIterator<D, T> it(tree, TopDown, Hilbert);
-    it.setReturnGenNodes(false);
-    while (it.nextParent()) {
-        MWNode<D, T> &node = it.getNode();
-        if (node.getDepth() == 0) continue;
-        int depth = node.getDepth() + tree.getNNegScales();
-        // Add one more element
-        if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
-        table[depth].push_back(&node);
+    int stack_p = 0;
+    int skipped = 0;
+    if (false) {
+        TreeIterator<D, T> it(tree, TopDown, Hilbert);
+        it.setReturnGenNodes(false);
+        while (it.nextParent()) {
+            MWNode<D, T> &node = it.getNode();
+            if (node.getDepth() == 0) continue;
+            int depth = node.getDepth() + tree.getNNegScales();
+            // Add one more element
+            if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
+            table[depth].push_back(&node);
+        }
+        it.init(tree);
+        while (it.next()) {
+            MWNode<D, T> &node = it.getNode();
+            int depth = node.getDepth() + tree.getNNegScales();
+            // Add one more element
+            if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
+            table[depth].push_back(&node);
+        }
+    } else {
+        // traverse tree and find allocated nodes
+        std::vector<MWNode<D, T> *> stack;
+        for (int i = 0; i < tree.getRootBox().size(); i++) {
+            stack.push_back(tree.getRootBox().getNodes()[i]);
+        }
+        while (stack.size() > stack_p) {
+            MWNode<D, T> *node = stack[stack_p];
+            int depth = node->getDepth() + tree.getNNegScales();
+            if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
+            table[depth].push_back(node);
+            for (int i = 0; i < node->getNChildren(); i++) {
+                if (&node->getMWChild(i) != nullptr) stack.push_back(&node->getMWChild(i));
+                else skipped++;
+            }
+            stack_p++;
+        }
     }
-    it.init(tree);
-    while (it.next()) {
-        MWNode<D, T> &node = it.getNode();
-        int depth = node.getDepth() + tree.getNNegScales();
-        // Add one more element
-        if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
-        table[depth].push_back(&node);
-    }
+    std::cout<<" tree_utils::make_node_table "<<stack_p<<" "<<skipped<<std::endl;
 }
 
 /** Make children scaling coefficients from parent

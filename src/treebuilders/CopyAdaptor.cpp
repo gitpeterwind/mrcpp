@@ -55,6 +55,8 @@ template <int D, typename T> void CopyAdaptor<D, T>::setBandWidth(int *bw) {
 
 template <int D, typename T> bool CopyAdaptor<D, T>::splitNode(const MWNode<D, T> &node) const {
     const NodeIndex<D> &idx = node.getNodeIndex();
+    //    std::cout<<" BCopyAdaptor: splitNode "<<std::endl;
+    //   mrcpp::NodeIndex<3> tidx(1,{1,1,7});
     for (int c = 0; c < node.getTDim(); c++) {
         for (int d = 0; d < D; d++) {
             for (int bw = -this->bandWidth[d]; bw <= this->bandWidth[d]; bw++) {
@@ -63,13 +65,16 @@ template <int D, typename T> bool CopyAdaptor<D, T>::splitNode(const MWNode<D, T
                 for (int i = 0; i < this->tree_vec.size(); i++) {
                     const FunctionTree<D, T> &func_i = get_func(tree_vec, i);
                     const MWNode<D, T> *node_i = func_i.findNode(bwIdx);
-                    if (node_i != nullptr) return true;
+                    if(D==3 and idx.getScale()==1 and idx.getTranslation(0)==1 and idx.getTranslation(2)==1 and idx.getTranslation(2)==7 )std::cout<<" CopyAdaptor: splitNode? "<<node_i <<std::endl;
+                   if (node_i != nullptr) return true;
                 }
             }
         }
     }
+    if(D==3 and idx.getScale()==1 and idx.getTranslation(0)==1 and idx.getTranslation(2)==1 and idx.getTranslation(2)==7 )std::cout<<" CopyAdaptor: splitNode not split "<<idx<<std::endl;
     return false;
 }
+
 
 template class CopyAdaptor<1, double>;
 template class CopyAdaptor<2, double>;

@@ -41,6 +41,7 @@ template <int D, typename T> void TreeBuilder<D, T>::build(MWTree<D, T> &tree, T
 
     MWNodeVector<D, T> *newVec = nullptr;
     MWNodeVector<D, T> *workVec = calculator.getInitialWorkVector(tree);
+    std::cout<<workVec->size()<<" Builder InitialWorkVector "<<workVec->size() <<std::endl;
 
     double sNorm = 0.0;
     double wNorm = 0.0;
@@ -71,13 +72,16 @@ template <int D, typename T> void TreeBuilder<D, T>::build(MWTree<D, T> &tree, T
         newVec = new MWNodeVector<D, T>;
         if (iter >= maxIter and maxIter >= 0) workVec->clear();
         adaptor.splitNodeVector(*newVec, *workVec);
+        std::cout<<workVec->size()<<" Builder adaptor "<<newVec->size()<<std::endl;
         split_t.stop();
 
         delete workVec;
         workVec = newVec;
         iter++;
     }
+    std::cout<<tree.getNNodes()<<" <resetEndNodeTable "<<tree.endNodeTable.size()<<std::endl;
     tree.resetEndNodeTable();
+    std::cout<<" done resetEndNodeTable "<<tree.endNodeTable.size()<<std::endl;
     delete workVec;
 
     print::separator(10, ' ');

@@ -72,7 +72,8 @@ namespace mrcpp {
 template <int D, typename T>
 void multiply(double prec, FunctionTree<D, T> &out, T c, FunctionTree<D, T> &inp_a, FunctionTree<D, T> &inp_b, int maxIter, bool absPrec, bool useMaxNorms, bool conjugate) {
     FunctionTreeVector<D, T> tmp_vec;
-    tmp_vec.push_back({c, &inp_a});
+    std::cout<<" multiply.cpp FunctionTree "<<std::endl;
+   tmp_vec.push_back({c, &inp_a});
     tmp_vec.push_back({1.0, &inp_b});
     multiply(prec, out, tmp_vec, maxIter, absPrec, useMaxNorms, conjugate);
 }
@@ -104,6 +105,7 @@ void multiply(double prec, FunctionTree<D, T> &out, T c, FunctionTree<D, T> &inp
 template <int D, typename T> void multiply(double prec, FunctionTree<D, T> &out, FunctionTreeVector<D, T> &inp, int maxIter, bool absPrec, bool useMaxNorms, bool conjugate) {
     for (auto i = 0; i < inp.size(); i++)
         if (out.getMRA() != get_func(inp, i).getMRA()) MSG_ABORT("Incompatible MRA");
+    std::cout<<" multiply.cpp trees "<<inp.size()<<std::endl;
 
     int maxScale = out.getMRA().getMaxScale();
     TreeBuilder<D, T> builder;
@@ -119,7 +121,9 @@ template <int D, typename T> void multiply(double prec, FunctionTree<D, T> &out,
     }
 
     Timer trans_t;
+    std::cout<<" multiply.cpp trees mwTransform(BottomUp)"<<inp.size()<<std::endl;
     out.mwTransform(BottomUp);
+    std::cout<<" multiply.cpp trees calcSquareNorm"<<inp.size()<<std::endl;
     out.calcSquareNorm();
     trans_t.stop();
 

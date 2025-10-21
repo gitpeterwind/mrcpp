@@ -266,7 +266,11 @@ template <int D, typename T> void MWNode<D, T>::attachCoefs(T *coefs) {
  */
 template <int D, typename T> void MWNode<D, T>::setCoefBlock(int block, int block_size, const T *c) {
     if (not this->isAllocated()) MSG_ABORT("Coefs not allocated");
-    for (int i = 0; i < block_size; i++) { this->coefs[block * block_size + i] = c[i]; }
+    if (c == nullptr) {
+        for (int i = 0; i < block_size; i++) { this->coefs[block * block_size + i] = 0.0; }
+    } else {
+        for (int i = 0; i < block_size; i++) { this->coefs[block * block_size + i] = c[i]; }
+    }
 }
 
 /** @brief adds values to a block of coefficients
@@ -303,34 +307,60 @@ template <int D, typename T> void MWNode<D, T>::zeroCoefBlock(int block, int blo
  * @param[in] overwrite: if true the coefficients of the children are
  * overwritten. If false the values are summed to the already present
  * ones.
+ * @param[in] cIdx: if >=0, compute only coefs for this child.
  *
  * @details it performs forward MW transform inserting the result
  * directly in the right place for each child node. The children must
  * already be present and its memory allocated for this to work
  * properly.
  */
-template <int D, typename T> void MWNode<D, T>::giveChildrenCoefs(bool overwrite) {
+    template <int D, typename T> void MWNode<D, T>::giveChildrenCoefs(bool overwrite, int cIdx) {
     assert(this->isBranchNode());
     if (not this->isAllocated()) MSG_ABORT("Not allocated!");
     if (not this->hasCoefs()) MSG_ABORT("No coefficients!");
 
     if (overwrite) {
-        for (int i = 0; i < getTDim(); i++) getMWChild(i).zeroCoefs();
+        if (cIdx < 0) {
+            for (int i = 0; i < getTDim(); i++) getMWChild(i).zeroCoefs();
+        }  else {
+            getMWChild(cIdx).zeroCoefs();
+        }
     }
 
     // coeff of child should be have been allocated already here
-    int stride = getMWChild(0).getNCoefs();
-    T *inp = getCoefs();
-    T *out = getMWChild(0).getCoefs();
-    bool readOnlyScaling = false;
-    if (this->isGenNode()) readOnlyScaling = true;
+    if (cIdx < 0) {
+        int stride = getMWChild(0).getNCoefs();
+        T *inp = getCoefs();
+        T *out = getMWChild(0).getCoefs();
+        bool readOnlyScaling = false;
+        if (this->isGenNode()) readOnlyScaling = true;
 
-    auto &tree = getMWTree();
-    tree_utils::mw_transform(tree, inp, out, readOnlyScaling, stride, overwrite);
+        auto &tree = getMWTree();
+        tree_utils::mw_transform(tree, inp, out, readOnlyScaling, stride, overwrite);
+    } else {
+        // put only coeff for one child
+        //TODO: optimize. (now we make all the coeff and copy the one we need)
+        int stride = getMWChild(cIdx).getNCoefs();
+        T *inp = getCoefs();
+        T *out = getMWChild(cIdx).getCoefs();
+        bool readOnlyScaling = false;
+        if (this->isGenNode()) readOnlyScaling = true;
+        auto &tree = getMWTree();
 
-    for (int i = 0; i < getTDim(); i++) {
-        getMWChild(i).setHasCoefs();
-        getMWChild(i).calcNorms(); // should need to compute only scaling norms
+        T out_tmp[stride*getTDim()];
+        for (int i = 0; i < stride; i++) out_tmp[i + cIdx*getTDim()] = out[i];
+        tree_utils::mw_transform(tree, inp, out_tmp, readOnlyScaling, stride, overwrite);
+        for (int i = 0; i < stride; i++) out[i] = out_tmp[i + cIdx*getTDim()];
+    }
+
+    if (cIdx < 0) {
+        for (int i = 0; i < getTDim(); i++) {
+            getMWChild(i).setHasCoefs();
+            getMWChild(i).calcNorms(); // should need to compute only scaling norms
+        }
+    } else {
+        getMWChild(cIdx).setHasCoefs();
+        getMWChild(cIdx).calcNorms(); // should need to compute only scaling norms
     }
 }
 
@@ -397,9 +427,15 @@ template <int D, typename T> void MWNode<D, T>::copyCoefsFromChildren() {
     int kp1_d = this->getKp1_d();
     int nChildren = this->getTDim();
     for (int cIdx = 0; cIdx < nChildren; cIdx++) {
-        MWNode<D, T> &child = getMWChild(cIdx);
-        if (not child.hasCoefs()) MSG_ABORT("Child has no coefs");
-        setCoefBlock(cIdx, kp1_d, child.getCoefs());
+        //child may not always exist
+        if (this->children[cIdx] == nullptr) {
+            // the coeffcicients are assumed negligible. Write zeros:
+            setCoefBlock(cIdx, kp1_d, nullptr);
+        } else {
+            MWNode<D, T> &child = getMWChild(cIdx);
+            if (not child.hasCoefs()) MSG_ABORT("Child has no coefs");
+            setCoefBlock(cIdx, kp1_d, child.getCoefs());
+        }
     }
 }
 
@@ -677,20 +713,82 @@ template <int D, typename T> void MWNode<D, T>::reCompress() {
  * @param[in] prec: precision required
  * @param[in] splitFac: factor used in the split check (larger factor means tighter threshold for finer nodes)
  * @param[in] absPrec: flag to switch from relative (false) to absolute (true) precision.
+ * @param[in] hard: remove also individual siblings from end nodes with threshold prec/10.
  */
-template <int D, typename T> bool MWNode<D, T>::crop(double prec, double splitFac, bool absPrec) {
+template <int D, typename T> bool MWNode<D, T>::crop(double prec, double splitFac, bool absPrec, bool hard) {
     if (this->isEndNode()) {
-        return true;
+           return true;
     } else {
-        for (int i = 0; i < this->getTDim(); i++) {
-            MWNode<D, T> &child = *this->children[i];
-            if (child.crop(prec, splitFac, absPrec)) {
-                if (tree_utils::split_check(*this, prec, splitFac, absPrec) == false) {
-                    this->deleteChildren();
-                    return true;
+        if (tree_utils::split_check(*this, prec, splitFac, absPrec) == false) {
+            // children are negligible
+            this->deleteChildren();
+            return true;
+        } else {
+            // note that if prec<=0 split_check will return false, and we do not come here
+            if (hard) {
+                // test each child separately
+                double t_norm = 1.0;
+                double sq_norm = getMWTree().getSquareNorm();
+                if (sq_norm > 0.0 and not absPrec) t_norm = std::sqrt(sq_norm);
+                double scale_fac = 1.0;
+                if (splitFac > MachineZero) {
+                    double expo = 0.5 * splitFac * (getScale() + 2);
+                    scale_fac = std::pow(2.0, -expo);
+                }
+                double thrs = std::max(2.0 * MachinePrec, prec * t_norm * scale_fac);
+                thrs /= 10.0; // for individual children we have a tighter threshold
+                int count = 0;
+                for (int i = 0; i < this->getTDim(); i++) {
+                    if (this->children[i] != nullptr) {
+                        // we test the norm to see if it is negligible
+                        // NB: it is the total norm, not the wavelet norm which is tested here
+                        // std::cout<<i<<" test "<<this->componentNorms[i]<<" "<<thrs<<" "<<getScale()<<" "<<scale_fac<<std::endl;
+                        if (this->componentNorms[i] < thrs) {
+                            count++;
+                            this->children[i]->dealloc();
+                            //                            std::cout<<count<<" deallocated child "<<i<<" "<<this->children[i]->getScale()<<std::endl;
+                            this->children[i] = nullptr;
+                        } else {
+                            this->children[i]->crop(prec, splitFac, absPrec, hard);
+                        }
+                    }
+                }
+                if (count == this->getTDim()) MSG_ABORT("cannot remove all children")
+
+            } else {
+                // continue recursively: crop all the children
+                for (int i = 0; i < this->getTDim(); i++) {
+                    if (this->children[i] != nullptr) this->children[i]->crop(prec, splitFac, absPrec, hard);
                 }
             }
         }
+
+
+        /*   for (int i = 0; i < this->getTDim(); i++) {
+            MWNode<D, T> &child = *this->children[i];
+            if (child.crop(prec, splitFac, absPrec, hard)) { // for each child which is an endnode, the split_check is called again
+                if (tree_utils::split_check(*this, prec, splitFac, absPrec) == false) {
+                    this->deleteChildren();
+                    return true; //The loop is left as soon as the children are deleted
+                } else {
+            }
+            if (hard) {
+                int count = 0;
+                for (int i = 0; i < this->getTDim(); i++) {
+                    std::cout<<count<<"child "<<i<<" "<<this->children[i]<<std::endl;
+               MWNode<D, T> &child = *this->children[i];
+                if (tree_utils::split_check(child, prec/10, splitFac, absPrec) == false) {
+                std::cout<<"deallocchild "<<i<<std::endl;
+                    child.dealloc();
+               std::cout<<"deallocated child "<<i<<std::endl;
+                    this->children[i] = nullptr;
+                    count++;
+                }
+                std::cout<<count<<" deallocchild done"<<i<<std::endl;
+            }
+            if (count == this->getTDim()) MSG_ABORT("cannot remove all children")
+        }
+        }*/
     }
     return false;
 }
@@ -699,7 +797,15 @@ template <int D, typename T> void MWNode<D, T>::createChildren(bool coefs) {
     NOT_REACHED_ABORT;
 }
 
+template <int D, typename T> void MWNode<D, T>::createChild(int cIdx, bool coefs) {
+    NOT_REACHED_ABORT;
+}
+
 template <int D, typename T> void MWNode<D, T>::genChildren() {
+    NOT_REACHED_ABORT;
+}
+
+template <int D, typename T> void MWNode<D, T>::genChild(int cIdx) {
     NOT_REACHED_ABORT;
 }
 
@@ -782,7 +888,7 @@ template <int D, typename T> Coord<D> MWNode<D, T>::getLowerBounds() const {
  * @param[in] nIdx: the sought after node through its NodeIndex
  *
  * @details Given the translation indices at the final scale, computes the child m
- * to be followed at the current scale in oder to get to the requested
+ * to be followed at the current scale in order to get to the requested
  * node at the final scale. The result is the index of the child needed.
  * The index is obtained by bit manipulation of of the translation indices. */
 template <int D, typename T> int MWNode<D, T>::getChildIndex(const NodeIndex<D> &nIdx) const {
@@ -948,6 +1054,7 @@ template <int D, typename T> const MWNode<D, T> *MWNode<D, T>::retrieveNodeNoGen
         return nullptr;
     }
     int cIdx = getChildIndex(idx);
+    if (this->children[cIdx] == nullptr) return nullptr;
     assert(this->children[cIdx] != nullptr);
     return this->children[cIdx]->retrieveNodeNoGen(idx);
 }
@@ -972,7 +1079,9 @@ template <int D, typename T> MWNode<D, T> *MWNode<D, T>::retrieveNodeNoGen(const
         return nullptr;
     }
     int cIdx = getChildIndex(idx);
+    if (this->children[cIdx] == nullptr) return nullptr;
     assert(this->children[cIdx] != nullptr);
+    if (this->children[cIdx] == nullptr) MSG_ABORT("retrieveNodeNoGen: node does not exist");
     return this->children[cIdx]->retrieveNodeNoGen(idx);
 }
 
@@ -1094,7 +1203,7 @@ template <int D, typename T> MWNode<D, T> *MWNode<D, T>::retrieveNode(const Coor
  * @details
  * Recursive routine to find and return the node with a given NodeIndex. This
  * routine always returns the appropriate node, and will generate nodes that
- * does not exist. Recursion starts at this node and ASSUMES the requested
+ * do not exist. Recursion starts at this node and ASSUMES the requested
  * node is in fact descending from this node.
  * If create = true, the nodes are permanently added to the tree.
  */
@@ -1113,12 +1222,21 @@ template <int D, typename T> MWNode<D, T> *MWNode<D, T>::retrieveNode(const Node
     }
 
     assert(isAncestor(idx));
+
     if (create) {
         threadSafeCreateChildren();
     } else {
         threadSafeGenChildren();
     }
     int cIdx = getChildIndex(idx);
+    if (this->children[cIdx] == nullptr) {
+        //child is missing
+        MRCPP_SET_OMP_LOCK();
+        genChild(cIdx);
+        giveChildrenCoefs(true, cIdx);
+        MRCPP_UNSET_OMP_LOCK();
+    }
+    if(this->children[cIdx] == nullptr)MSG_ABORT("child does not exist " << cIdx<<" "<<idx<<" "<<this->getNodeIndex());
     assert(this->children[cIdx] != nullptr);
     return this->children[cIdx]->retrieveNode(idx, create);
 }

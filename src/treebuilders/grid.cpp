@@ -148,6 +148,7 @@ template <int D, typename T> void build_grid(FunctionTree<D, T> &out, FunctionTr
     TreeBuilder<D, T> builder;
     CopyAdaptor<D, T> adaptor(inp, maxScale, nullptr);
     DefaultCalculator<D, T> calculator;
+    std::cout<<"build_grid with CopyAdaptor"<<std::endl;
     builder.build(out, calculator, adaptor, maxIter);
     print::separator(10, ' ');
 }
@@ -221,7 +222,10 @@ template <int D, typename T> void copy_func(FunctionTree<D, T> &out, FunctionTre
 template <int D, typename T> void copy_grid(FunctionTree<D, T> &out, FunctionTree<D, T> &inp) {
     if (out.getMRA() != inp.getMRA()) MSG_ABORT("Incompatible MRA")
     out.clear();
-    build_grid(out, inp);
+    out.allocRootNodes();
+    out.appendTreeCoeff(inp);
+    std::cout<<" copy_grid "<<inp.getNNodes()<<" "<<out.getNNodes()<<std::endl;
+    //    build_grid(out, inp);
 }
 
 /** @brief Build empty grid that is identical to another MW grid for every component
@@ -238,10 +242,14 @@ template <int D> void copy_grid(CompFunction<D> &out, CompFunction<D> &inp) {
     out.free();
     out.func_ptr->data = inp.func_ptr->data;
     out.alloc(inp.Ncomp());
+    std::cout<<"copy_grid A"<<std::endl;
     for (int i = 0; i < inp.Ncomp(); i++) {
-        if (inp.isreal()) build_grid(*out.CompD[i], *inp.CompD[i]);
-        if (inp.iscomplex()) build_grid(*out.CompC[i], *inp.CompC[i]);
+        //       if (inp.isreal()) build_grid(*out.CompD[i], *inp.CompD[i]);
+       // if (inp.iscomplex()) build_grid(*out.CompC[i], *inp.CompC[i]);
+        if (inp.isreal()) copy_grid(*out.CompD[i], *inp.CompD[i]);
+        if (inp.iscomplex()) copy_grid(*out.CompC[i], *inp.CompC[i]);
     }
+    std::cout<<" copy_grid A "<<inp.getNNodes()<<" "<<out.getNNodes()<<std::endl;
 }
 
 /** @brief Clear the MW coefficients of a function representation

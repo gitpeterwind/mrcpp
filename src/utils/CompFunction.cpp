@@ -384,14 +384,14 @@ template <int D> void CompFunction<D>::add(ComplexDouble c, CompFunction<D> inp)
     }
 }
 
-template <int D> int CompFunction<D>::crop(double prec) {
+template <int D> int CompFunction<D>::crop(double prec, bool hard) {
     if (prec < 0.0) return 0;
     int nChunksremoved = 0;
     for (int i = 0; i < Ncomp(); i++) {
         if (isreal()) {
-            nChunksremoved += CompD[i]->crop(prec, 1.0, false);
+            nChunksremoved += CompD[i]->crop(prec, 1.0, false, hard);
         } else {
-            nChunksremoved += CompC[i]->crop(prec, 1.0, false);
+            nChunksremoved += CompC[i]->crop(prec, 1.0, false, hard);
         }
     }
     return nChunksremoved;
@@ -842,6 +842,20 @@ void CompFunctionVector::distribute() {
     for (int i = 0; i < this->size(); i++) (*this)[i].func_ptr->rank = i;
 }
 
+int CompFunctionVector::getNNodes() {
+    int NNodes = 0;
+    for (int i = 0; i < this->size(); i++) NNodes +=  (*this)[i].getNNodes();
+    return NNodes; //NB: sums only own functions
+}
+
+int CompFunctionVector::crop(double prec, bool hard) {
+    int nChunksremoved = 0;
+    for (int i = 0; i < this->size(); i++) {
+        if (mrcpp::mpi::my_func(i)) nChunksremoved += (*this)[i].crop(prec, hard);
+    }
+    return nChunksremoved; //NB: sums only own functions
+}
+
 /** @brief Make a linear combination of functions
  *
  * Uses "local" representation: treats one node at a time.
@@ -1162,6 +1176,7 @@ void rotate(CompFunctionVector &Phi, const ComplexMatrix &U, CompFunctionVector 
 
     // 1) make union tree without coefficients. Note that the ref tree is always real (in fact it has no coeff)
     FunctionTree<3> refTree(*Phi.vecMRA);
+    std::cout<<"start allreduce_Tree_noCoeff "<<std::endl;
     mpi::allreduce_Tree_noCoeff(refTree, Phi, mpi::comm_wrk);
 
     int sizecoeff = (1 << refTree.getDim()) * refTree.getKp1_d();

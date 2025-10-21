@@ -493,13 +493,15 @@ template <typename T> void allreduce_Tree_noCoeff(mrcpp::FunctionTree<3, T> &tre
     int N = Phi.size();
     for (int j = 0; j < N; j++) {
         if (not my_func(j)) continue;
+        std::cout<<"start tree.appendTreeNoCoeff(Phi[j] "<<std::endl;
         tree.appendTreeNoCoeff(Phi[j]);
     }
 #ifdef MRCPP_HAS_MPI
     mrcpp::mpi::reduce_Tree_noCoeff(tree, comm_wrk);
     mrcpp::mpi::broadcast_Tree_noCoeff(tree, comm_wrk);
 #endif
-}
+       std::cout<<"start tree.appendTreeNoCoeff(Phi[j] done"<<std::endl;
+ }
 
 /** @brief make union tree without coeff and send to all
  */
@@ -509,6 +511,7 @@ template <typename T> void allreduce_Tree_noCoeff(mrcpp::FunctionTree<3, T> &tre
        3) rank zero broadcast func to everybody
      */
 
+        std::cout<<"start allreduce_Tree_noCoeff "<<std::endl;
     int N = Phi.size();
     for (int j = 0; j < N; j++) {
         if (not my_func(j)) continue;

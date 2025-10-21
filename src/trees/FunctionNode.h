@@ -43,7 +43,9 @@ public:
     const FunctionNode<D, T> &getFuncChild(int i) const { return static_cast<const FunctionNode<D, T> &>(*this->children[i]); }
 
     void createChildren(bool coefs) override;
+    void createChild(int cIdx, bool coefs) override;
     void genChildren() override;
+    void genChild(int cIdx) override;
     void genParent() override;
     void deleteChildren() override;
 

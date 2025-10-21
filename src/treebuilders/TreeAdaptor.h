@@ -40,6 +40,7 @@ public:
 
     void splitNodeVector(MWNodeVector<D, T> &out, MWNodeVector<D, T> &inp) const {
         for (int n = 0; n < inp.size(); n++) {
+            if(inp[n] == nullptr) continue;
             MWNode<D, T> &node = *inp[n];
             // Can be BranchNode in operator application
             if (node.isBranchNode()) continue;
@@ -49,6 +50,7 @@ public:
                 for (int i = 0; i < node.getNChildren(); i++) out.push_back(&node.getMWChild(i));
             }
         }
+        std::cout<<inp.size()<<" TreeAdaptor: splitNodeVector "<<out.size()<<std::endl;
     }
 
 protected:

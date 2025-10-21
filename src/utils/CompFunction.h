@@ -132,7 +132,7 @@ public:
     const int getRank() const { return func_ptr->rank; };
     void add(ComplexDouble c, CompFunction<D> inp);
 
-    int crop(double prec);
+    int crop(double prec, bool hard = false);
     void rescale(ComplexDouble c);
     void free();
     int getSizeNodes() const;
@@ -186,6 +186,8 @@ public:
     CompFunctionVector(int N = 0);
     MultiResolutionAnalysis<3> *vecMRA;
     void distribute();
+    int crop(double prec, bool hard = false);
+    int getNNodes();
 };
 
 void rotate(CompFunctionVector &Phi, const ComplexMatrix &U, double prec = -1.0);

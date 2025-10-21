@@ -119,7 +119,9 @@ public:
     void clearNorms();
 
     virtual void createChildren(bool coefs);
+    virtual void createChild(int cIdx, bool coefs);
     virtual void genChildren();
+    virtual void genChild(int cIdx);
     virtual void genParent();
     virtual void deleteChildren();
     virtual void deleteParent();
@@ -158,6 +160,7 @@ public:
 
     friend class TreeBuilder<D, T>;
     friend class MultiplicationCalculator<D, T>;
+    friend class CopyAdaptor<D, T>;
     friend class NodeAllocator<D, T>;
     friend class MWTree<D, T>;
     friend class FunctionTree<D, T>;
@@ -201,7 +204,7 @@ protected:
 
     virtual void dealloc();
 
-    bool crop(double prec, double splitFac, bool absPrec);
+    bool crop(double prec, double splitFac, bool absPrec, bool hard = false);
 
     void initNodeLock() { MRCPP_INIT_OMP_LOCK(); }
     virtual void allocCoefs(int n_blocks, int block_size);
@@ -214,7 +217,7 @@ protected:
     virtual double calcComponentNorm(int i) const;
 
     virtual void reCompress();
-    virtual void giveChildrenCoefs(bool overwrite = true);
+    virtual void giveChildrenCoefs(bool overwrite = true, int cIdx = -1);
     virtual void giveChildCoefs(int cIdx, bool overwrite = true);
     virtual void giveParentCoefs(bool overwrite = true);
     virtual void copyCoefsFromChildren();

@@ -983,9 +983,11 @@ template <int D, typename T> void FunctionTree<D, T>::makeTreefromCoeff(MWTree<D
             } else {
                 node->createChildren(true);
                 for (int i = 0; i < refNode->getNChildren(); i++) {
-                    int ixc = ix2coef[refNode->children[i]->getSerialIx()];
-                    ix2node[ixc] = node->children[i];      // corresponding child node in this tree
-                    stack.push_back(refNode->children[i]); // means we continue to traverse the reference tree
+                    if(refNode->children[i]!=nullptr){
+                        int ixc = ix2coef[refNode->children[i]->getSerialIx()];
+                        ix2node[ixc] = node->children[i];      // corresponding child node in this tree
+                        stack.push_back(refNode->children[i]); // means we continue to traverse the reference tree
+                    }
                 }
             }
         } else if ((absPrec < 0 or tree_utils::split_check(*node, absPrec, 1.0, true)) and refNode->getNChildren() > 0) {
@@ -995,15 +997,17 @@ template <int D, typename T> void FunctionTree<D, T>::makeTreefromCoeff(MWTree<D
             T *out = node->getMWChild(0).getCoefs();
             tree_utils::mw_transform(*this, inp, out, false, sizecoef, true); // make the scaling part
             for (int i = 0; i < refNode->getNChildren(); i++) {
-                stack.push_back(refNode->children[i]); // means we continue to traverse the reference tree
-                int ixc = ix2coef[refNode->children[i]->getSerialIx()];
-                ix2node[ixc] = node->children[i]; // corresponding child node in this tree
+                if(refNode->children[i]!=nullptr){
+                    stack.push_back(refNode->children[i]); // means we continue to traverse the reference tree
+                    int ixc = ix2coef[refNode->children[i]->getSerialIx()];
+                    ix2node[ixc] = node->children[i]; // corresponding child node in this tree
+                }
             }
         } else {
             this->endNodeTable.push_back(node);
             this->squareNorm += node->getSquareNorm();
         }
-    }
+   }
 }
 
 /** Traverse tree using DFS and append same nodes as another tree, without coefficients
@@ -1012,19 +1016,19 @@ template <int D, typename T> void FunctionTree<D, T>::makeTreefromCoeff(MWTree<D
 template <int D, typename T> void FunctionTree<D, T>::appendTreeNoCoeff(MWTree<D, double> &inTree) {
     std::vector<MWNode<D, double> *> instack; // node from inTree
     std::vector<MWNode<D, T> *> thisstack;    // node from this Tree
-         std::cout<<"start FunctionTree<D, T>::appendTreeNoCoeff "<<std::endl;
    this->clearEndNodeTable();
-    for (int rIdx = 0; rIdx < inTree.getRootBox().size(); rIdx++) {
+   for (int rIdx = 0; rIdx < inTree.getRootBox().size(); rIdx++) {
         instack.push_back(inTree.getRootBox().getNodes()[rIdx]);
         thisstack.push_back(this->getRootBox().getNodes()[rIdx]);
-    }
-    while (thisstack.size() > 0) {
-        // inNode and thisNode are the same node in space, but on different trees
+   }
+   while (thisstack.size() > 0) {
+       // inNode and thisNode are the same node in space, but on different trees
         MWNode<D, T> *thisNode = thisstack.back();
         thisstack.pop_back();
         MWNode<D, double> *inNode = instack.back();
         instack.pop_back();
-        if (inNode->getNChildren() > 0) {
+        std::vector<MWNode<D, T> *> branchstack; // stack for nodes that are in this tree, but not in inTree
+       if (inNode->getNChildren() > 0) {
             thisNode->clearIsEndNode();
             //           if (thisNode->getNChildren() < inNode->getNChildren()) thisNode->createChildren(false);
             for (int i = 0; i < inNode->getNChildren(); i++) {
@@ -1033,24 +1037,23 @@ template <int D, typename T> void FunctionTree<D, T>::appendTreeNoCoeff(MWTree<D
                     instack.push_back(inNode->children[i]);
                     thisstack.push_back(thisNode->children[i]);
                 } else {
-                    if (thisNode->children[i] != nullptr) thisstack.push_back(thisNode->children[i]);
+                    if (thisNode->children[i] != nullptr) branchstack.push_back(thisNode->children[i]);
                 }
             }
         } else {
+            branchstack.push_back(thisNode);
+        }
+        while (branchstack.size() > 0) {
             // construct EndNodeTable for "This", starting from this branch
             // This could be done more efficiently, if it proves to be time consuming
-            std::vector<MWNode<D, T> *> branchstack; // local stack starting from this branch
-            branchstack.push_back(thisNode);
-            while (branchstack.size() > 0) {
-                MWNode<D, T> *branchNode = branchstack.back();
-                branchstack.pop_back();
-                if (branchNode->getNChildren() > 0) {
-                    for (int i = 0; i < branchNode->getNChildren(); i++) {
-                        if (branchNode->children[i] != nullptr) branchstack.push_back(branchNode->children[i]);
-                    }
-                } else
-                    this->endNodeTable.push_back(branchNode);
-            }
+            MWNode<D, T> *branchNode = branchstack.back();
+            branchstack.pop_back();
+            if (branchNode->getNChildren() > 0) {
+                for (int i = 0; i < branchNode->getNChildren(); i++) {
+                    if (branchNode->children[i] != nullptr) branchstack.push_back(branchNode->children[i]);
+                }
+            } else
+                this->endNodeTable.push_back(branchNode);
         }
     }
 }

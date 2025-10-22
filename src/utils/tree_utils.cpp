@@ -80,6 +80,7 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
         MWNode<D, T> &node = it.getNode();
         table.push_back(&node);
     }
+    std::cout<<" tree_utils::oldmake_node_table "<<std::endl;
 }
 
 /** Traverse tree and find nodes of any rankId.
@@ -87,7 +88,10 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
 template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree, std::vector<MWNodeVector<D, T>> &table) {
     int stack_p = 0;
     int skipped = 0;
+    int count = 0;
+    std::cout<<" tree_utils::make_node_table "<<table.size()<<std::endl;
     if (false) {
+    //if (true) {
         TreeIterator<D, T> it(tree, TopDown, Hilbert);
         it.setReturnGenNodes(false);
         while (it.nextParent()) {
@@ -115,6 +119,7 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
         while (stack.size() > stack_p) {
             MWNode<D, T> *node = stack[stack_p];
             int depth = node->getDepth() + tree.getNNegScales();
+            count++;
             if (depth + 1 > table.size()) table.push_back(MWNodeVector<D, T>());
             table[depth].push_back(node);
             for (int i = 0; i < node->getNChildren(); i++) {
@@ -124,7 +129,8 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
             stack_p++;
         }
     }
-    std::cout<<" tree_utils::make_node_table "<<stack_p<<" "<<skipped<<std::endl;
+    for (int i = 0; i < table.size(); i++)std::cout<<i<<" "<<table[i].size()<<std::endl;
+    std::cout<<" tree_utils::make_node_table "<<count<<" "<<stack_p<<" "<<skipped<<" "<<tree.getNNodes()<<std::endl;
 }
 
 /** Make children scaling coefficients from parent

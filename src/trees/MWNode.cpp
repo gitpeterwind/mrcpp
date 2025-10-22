@@ -745,6 +745,7 @@ template <int D, typename T> bool MWNode<D, T>::crop(double prec, double splitFa
                         // std::cout<<i<<" test "<<this->componentNorms[i]<<" "<<thrs<<" "<<getScale()<<" "<<scale_fac<<std::endl;
                         if (this->componentNorms[i] < thrs) {
                             count++;
+                            this->children[i]->deleteChildren();
                             this->children[i]->dealloc();
                             //                            std::cout<<count<<" deallocated child "<<i<<" "<<this->children[i]->getScale()<<std::endl;
                             this->children[i] = nullptr;

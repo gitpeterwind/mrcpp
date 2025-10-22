@@ -89,7 +89,6 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
     int stack_p = 0;
     int skipped = 0;
     int count = 0;
-    std::cout<<" tree_utils::make_node_table "<<table.size()<<std::endl;
     if (false) {
     //if (true) {
         TreeIterator<D, T> it(tree, TopDown, Hilbert);
@@ -129,7 +128,7 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
             stack_p++;
         }
     }
-    for (int i = 0; i < table.size(); i++)std::cout<<i<<" "<<table[i].size()<<std::endl;
+    //    for (int i = 0; i < table.size(); i++)std::cout<<i<<" "<<table[i].size()<<std::endl;
     std::cout<<" tree_utils::make_node_table "<<count<<" "<<stack_p<<" "<<skipped<<" "<<tree.getNNodes()<<std::endl;
 }
 

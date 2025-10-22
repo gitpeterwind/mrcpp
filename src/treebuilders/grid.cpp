@@ -222,7 +222,9 @@ template <int D, typename T> void copy_func(FunctionTree<D, T> &out, FunctionTre
 template <int D, typename T> void copy_grid(FunctionTree<D, T> &out, FunctionTree<D, T> &inp) {
     if (out.getMRA() != inp.getMRA()) MSG_ABORT("Incompatible MRA")
     out.clear();
-    out.allocRootNodes();
+    std::cout<<" copy_grid after clear"<<inp.getNNodes()<<" "<<out.getNNodes()<<std::endl;
+    // out.allocRootNodes();
+    // std::cout<<" copy_grid after allocRootNodes"<<inp.getNNodes()<<" "<<out.getNNodes()<<std::endl;
     out.appendTreeCoeff(inp);
     std::cout<<" copy_grid "<<inp.getNNodes()<<" "<<out.getNNodes()<<std::endl;
     //    build_grid(out, inp);

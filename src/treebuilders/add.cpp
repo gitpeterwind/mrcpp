@@ -104,7 +104,6 @@ template <int D, typename T> void add(double prec, FunctionTree<D, T> &out, Func
     Timer trans_t;
     out.mwTransform(BottomUp);
     out.calcSquareNorm();
-
     trans_t.stop();
 
     Timer clean_t;
@@ -112,6 +111,7 @@ template <int D, typename T> void add(double prec, FunctionTree<D, T> &out, Func
         FunctionTree<D, T> &tree = get_func(inp, i);
         tree.deleteGenerated();
     }
+
     clean_t.stop();
 
     print::time(10, "Time transform", trans_t);

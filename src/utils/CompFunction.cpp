@@ -848,6 +848,12 @@ int CompFunctionVector::getNNodes() {
     return NNodes; //NB: sums only own functions
 }
 
+double CompFunctionVector::getSquareNorm() const {
+    double sqnorm = 0;
+    for (int i = 0; i < this->size(); i++) sqnorm +=  (*this)[i].getSquareNorm();
+    return sqnorm; //NB: sums only own functions
+}
+
 int CompFunctionVector::crop(double prec, bool hard) {
     int nChunksremoved = 0;
     for (int i = 0; i < this->size(); i++) {

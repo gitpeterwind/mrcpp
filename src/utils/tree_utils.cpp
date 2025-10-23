@@ -80,7 +80,6 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
         MWNode<D, T> &node = it.getNode();
         table.push_back(&node);
     }
-    std::cout<<" tree_utils::oldmake_node_table "<<std::endl;
 }
 
 /** Traverse tree and find nodes of any rankId.
@@ -129,7 +128,7 @@ template <int D, typename T> void tree_utils::make_node_table(MWTree<D, T> &tree
         }
     }
     //    for (int i = 0; i < table.size(); i++)std::cout<<i<<" "<<table[i].size()<<std::endl;
-    std::cout<<" tree_utils::make_node_table "<<count<<" "<<stack_p<<" "<<skipped<<" "<<tree.getNNodes()<<std::endl;
+    //std::cout<<" tree_utils::make_node_table "<<count<<" "<<stack_p<<" "<<skipped<<" "<<tree.getNNodes()<<std::endl;
 }
 
 /** Make children scaling coefficients from parent

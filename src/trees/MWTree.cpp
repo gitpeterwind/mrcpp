@@ -165,9 +165,7 @@ template <int D, typename T> void MWTree<D, T>::mwTransform(int type, bool overw
  */
 template <int D, typename T> void MWTree<D, T>::mwTransformUp() {
     std::vector<MWNodeVector<D, T>> nodeTable;
-    std::cout<<" MWTree.cpp mwTransformUp"<<std::endl;
     tree_utils::make_node_table(*this, nodeTable);
-    std::cout<<" MWTree.cpp done make_node_table"<<nodeTable.size()<<std::endl;
 #pragma omp parallel shared(nodeTable) num_threads(mrcpp_get_num_threads())
     {
         int start = nodeTable.size() - 2;

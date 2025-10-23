@@ -348,9 +348,11 @@ template <int D, typename T> void MWNode<D, T>::zeroCoefBlock(int block, int blo
         auto &tree = getMWTree();
 
         T out_tmp[stride*getTDim()];
-        for (int i = 0; i < stride; i++) out_tmp[i + cIdx*getTDim()] = out[i];
+        for (int i = 0; i < stride*getTDim(); i++) out_tmp[i] = 0.0;//out[i];
         tree_utils::mw_transform(tree, inp, out_tmp, readOnlyScaling, stride, overwrite);
-        for (int i = 0; i < stride; i++) out[i] = out_tmp[i + cIdx*getTDim()];
+        double nrm =0.0;
+        for (int i = 0; i < stride; i++) out[i] = out_tmp[i + cIdx*stride];
+        for (int i = 0; i < stride; i++) nrm += std::norm((out_tmp[i + cIdx*getTDim()])*(out_tmp[i + cIdx*getTDim()]));
     }
 
     if (cIdx < 0) {
@@ -743,8 +745,11 @@ template <int D, typename T> bool MWNode<D, T>::crop(double prec, double splitFa
                         // we test the norm to see if it is negligible
                         // NB: it is the total norm, not the wavelet norm which is tested here
                         // std::cout<<i<<" test "<<this->componentNorms[i]<<" "<<thrs<<" "<<getScale()<<" "<<scale_fac<<std::endl;
-                        if (this->componentNorms[i] < thrs) {
+                        //if (this->componentNorms[i] < thrs) {
+                        if (this->children[i]->getSquareNorm() < thrs) {
                             count++;
+                            //std::cout<<this->componentNorms[i]<<" "<<thrs<<" delete child "<<this->children[i]->getNodeIndex()<<" "<<this->children[i]->getSquareNorm()<<std::endl;
+                            this->children[i]->zeroCoefs();//should not be necessary
                             this->children[i]->deleteChildren();
                             this->children[i]->dealloc();
                             //                            std::cout<<count<<" deallocated child "<<i<<" "<<this->children[i]->getScale()<<std::endl;

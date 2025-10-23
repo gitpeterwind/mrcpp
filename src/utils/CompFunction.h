@@ -188,6 +188,7 @@ public:
     void distribute();
     int crop(double prec, bool hard = false);
     int getNNodes();
+    double getSquareNorm() const;
 };
 
 void rotate(CompFunctionVector &Phi, const ComplexMatrix &U, double prec = -1.0);

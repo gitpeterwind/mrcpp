@@ -50,7 +50,6 @@ public:
                 for (int i = 0; i < node.getNChildren(); i++) out.push_back(&node.getMWChild(i));
             }
         }
-        std::cout<<inp.size()<<" TreeAdaptor: splitNodeVector "<<out.size()<<std::endl;
     }
 
 protected:

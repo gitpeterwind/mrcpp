@@ -882,7 +882,6 @@ void FunctionTree<D, T>::makeCoeffVector(std::vector<T *> &coefs,
                                          int &max_index,
                                          MWTree<D, double> &refTree,
                                          std::vector<MWNode<D, double> *> *refNodes) {
-    std::cout<<"start FunctionTree<D, T>::makeCoeffVector "<<std::endl;
     coefs.clear();
     indices.clear();
     parent_indices.clear();
@@ -923,7 +922,6 @@ void FunctionTree<D, T>::makeCoeffVector(std::vector<T *> &coefs,
             }
         }
     }
-    std::cout<<"done FunctionTree<D, T>::makeCoeffVector "<<std::endl;
 }
 
 /** Traverse tree using DFS and reconstruct it using node info from the
